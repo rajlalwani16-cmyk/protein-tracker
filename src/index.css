@@ -105,7 +105,7 @@ html::before {
 }
 body {
   font-family: 'Outfit', system-ui, sans-serif;
-  background: var(--bg);
+  background: var(--g700);
   color: var(--txt);
   min-height: 100dvh;
   overflow-x: hidden;
@@ -135,6 +135,7 @@ img, svg { display: block; max-width: 100%; }
 
 .page-content {
   padding: 0 16px;
+  background: var(--bg);
 }
 
 /* ─── TYPOGRAPHY ─────────────────────────────────────────────────────────── */
@@ -360,7 +361,7 @@ h3 { font-size: 1rem; font-weight: 600; }
 .dash-total-unit { font-size: 0.75rem; color: var(--g200); }
 .dash-total-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em; color: var(--g300); text-transform: uppercase; }
 
-.dash-body { padding: 0 16px; }
+.dash-body { padding: 0 16px; background: var(--bg); }
 
 .dash-progress-card {
   background: var(--surf);
