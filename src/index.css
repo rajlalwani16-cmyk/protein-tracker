@@ -89,7 +89,7 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
-  background: #000000;
+  background: #1A4731;
   overscroll-behavior-y: none;
 }
 /* Plug the 1px gap between OS status bar and app content */
@@ -99,7 +99,7 @@ html::before {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: calc(env(safe-area-inset-top) + 2px);
-  background: #000000;
+  background: #1A4731;
   z-index: 99999;
   pointer-events: none;
 }
