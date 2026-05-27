@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'Meals',
         short_name: 'Meals',
         description: 'Daily nutrition and protein tracking for 100g protein / 1900 kcal goals',
-        theme_color: '#1A4731',
+        theme_color: '#000000',
         background_color: '#FDF6EC',
         display: 'standalone',
         orientation: 'portrait-primary',
