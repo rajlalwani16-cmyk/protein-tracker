@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { todayKey } from '../utils/date.js'
 import { computeStreak } from '../utils/nutrition.js'
-import { PRESET_MEALS } from '../data/meals.js'
+import { PRESET_MEALS, DAILY_TARGETS } from '../data/meals.js'
+import { computeTargets, DEFAULT_PROFILE } from '../utils/targets.js'
 
 const STORAGE_KEY = 'proteinTracker_v1'
 const SETTINGS_KEY = 'proteinTracker_settings'
@@ -34,6 +35,8 @@ const defaultSettings = {
   nudgeTime: '20:00',
   notificationsEnabled: false,
   darkMode: 'auto',
+  profile: DEFAULT_PROFILE,
+  targets: null, // null = use DAILY_TARGETS fallback
 }
 
 const AppContext = createContext(null)
@@ -207,12 +210,16 @@ export function AppProvider({ children }) {
     saveSettings({ ...settings, ...patch })
   }, [settings, saveSettings])
 
-  const streak = computeStreak(state.dailyLogs)
+  // Use computed targets from profile, fallback to hardcoded defaults
+  const targets = settings.targets || DAILY_TARGETS
+  const profile = settings.profile || DEFAULT_PROFILE
+  const streak = computeStreak(state.dailyLogs, targets.protein.min)
 
   return (
     <AppContext.Provider value={{
       state, settings,
       getDay, streak,
+      targets, profile,
       toggleMeal, setMealVariant,
       addFreeLog, removeFreeLog,
       addWater, removeWater,

@@ -45,11 +45,11 @@ export function getCalorieColor(kcal) {
   return 'yellow'
 }
 
-export function hitProteinGoal(dayLog) {
-  return getDayTotals(dayLog).protein >= DAILY_TARGETS.protein.min
+export function hitProteinGoal(dayLog, proteinMin = DAILY_TARGETS.protein.min) {
+  return getDayTotals(dayLog).protein >= proteinMin
 }
 
-export function computeStreak(dailyLogs) {
+export function computeStreak(dailyLogs, proteinMin = DAILY_TARGETS.protein.min) {
   const today = new Date()
   let streak = 0
   for (let i = 0; i < 365; i++) {
@@ -61,7 +61,7 @@ export function computeStreak(dailyLogs) {
       if (i === 0) continue // today might not be started yet
       break
     }
-    if (hitProteinGoal(log)) {
+    if (hitProteinGoal(log, proteinMin)) {
       streak++
     } else if (i === 0) {
       continue // today not done yet — don't break streak

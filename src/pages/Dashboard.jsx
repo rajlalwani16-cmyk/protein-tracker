@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { todayKey, offsetDate, formatDate, isFuture } from '../utils/date.js'
 import { getDayTotals, getProteinColor, getCalorieColor } from '../utils/nutrition.js'
-import { DAILY_TARGETS, PRESET_MEALS } from '../data/meals.js'
+import { PRESET_MEALS } from '../data/meals.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 import MealSlot from '../components/MealSlot.jsx'
 import WaterTracker from '../components/WaterTracker.jsx'
@@ -10,7 +10,7 @@ import { StreakBadge } from '../components/StreakBadge.jsx'
 import ProteinReference from '../components/ProteinReference.jsx'
 
 export default function Dashboard() {
-  const { getDay, streak } = useApp()
+  const { getDay, streak, targets, profile } = useApp()
   const [dateKey, setDateKey] = useState(todayKey())
 
   const dayLog = getDay(dateKey)
@@ -41,7 +41,9 @@ export default function Dashboard() {
 
           <div className="dash-date-text">
             <div className="day display">{dateLabel.day}</div>
-            <div className="date-full">{dateLabel.full}</div>
+            <div className="date-full">
+              {profile.name ? `${profile.name} · ` : ''}{dateLabel.full}
+            </div>
           </div>
 
           <button
@@ -58,7 +60,7 @@ export default function Dashboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <StreakBadge streak={streak} />
-          {isToday && totals.protein >= DAILY_TARGETS.protein.min && (
+          {isToday && totals.protein >= targets.protein.min && (
             <span style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--rFull)', padding: '4px 12px', fontSize: '0.75rem', color: 'var(--g100)', fontWeight: 600 }}>
               🎯 Goal hit!
             </span>
@@ -69,17 +71,17 @@ export default function Dashboard() {
           <div className="dash-total-item">
             <div className="dash-total-val">{totals.protein}<span style={{ fontSize: '0.9rem' }}>g</span></div>
             <div className="dash-total-label">Protein</div>
-            <div className="dash-total-unit">goal {DAILY_TARGETS.protein.goal}g</div>
+            <div className="dash-total-unit">goal {targets.protein.goal}g</div>
           </div>
           <div className="dash-total-item">
             <div className="dash-total-val">{totals.calories}</div>
             <div className="dash-total-label">Calories</div>
-            <div className="dash-total-unit">goal {DAILY_TARGETS.calories.goal}</div>
+            <div className="dash-total-unit">goal {targets.calories.goal}</div>
           </div>
           <div className="dash-total-item">
             <div className="dash-total-val">{totals.water.toFixed(1)}<span style={{ fontSize: '0.9rem' }}>L</span></div>
             <div className="dash-total-label">Water</div>
-            <div className="dash-total-unit">goal {DAILY_TARGETS.water.goal}L</div>
+            <div className="dash-total-unit">goal {targets.water.goal}L</div>
           </div>
         </div>
       </div>
@@ -90,21 +92,21 @@ export default function Dashboard() {
           <ProgressBar
             label="Protein"
             current={totals.protein}
-            goal={DAILY_TARGETS.protein.goal}
+            goal={targets.protein.goal}
             unit="g"
             color={proteinColor}
           />
           <ProgressBar
             label="Calories"
             current={totals.calories}
-            goal={DAILY_TARGETS.calories.goal}
+            goal={targets.calories.goal}
             unit=" kcal"
             color={calorieColor}
           />
           <ProgressBar
             label="Water"
             current={totals.water}
-            goal={DAILY_TARGETS.water.goal}
+            goal={targets.water.goal}
             unit="L"
             color="water"
           />

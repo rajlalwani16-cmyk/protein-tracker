@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { todayKey } from '../utils/date.js'
-import { DAILY_TARGETS } from '../data/meals.js'
+import { computeTargets, ACTIVITY_LABELS, GOAL_LABELS } from '../utils/targets.js'
 
 export default function Settings() {
-  const { settings, updateSettings, clearDay, exportData, showToast } = useApp()
+  const { settings, updateSettings, clearDay, exportData, showToast, targets, profile } = useApp()
   const [notifStatus, setNotifStatus] = useState(null)
+
+  const updateProfile = (patch) => {
+    const newProfile = { ...profile, ...patch }
+    const newTargets = computeTargets(newProfile)
+    updateSettings({ profile: newProfile, targets: newTargets })
+  }
 
   const handleToggleNotifications = async (enabled) => {
     if (enabled) {
@@ -44,26 +50,90 @@ export default function Settings() {
       </div>
 
       <div className="page-content" style={{ paddingTop: 20 }}>
-        {/* Daily Targets */}
-        <p className="settings-group-label">Daily Targets</p>
+        {/* Profile */}
+        <p className="settings-group-label">Your Profile</p>
+        <div className="settings-group">
+          <div className="settings-row">
+            <div className="settings-row-icon">👤</div>
+            <div className="settings-row-info">
+              <div className="settings-row-label">Name</div>
+            </div>
+            <input
+              type="text"
+              value={profile.name || ''}
+              onChange={e => updateProfile({ name: e.target.value })}
+              style={{ height: 36, padding: '0 10px', borderRadius: 'var(--r8)', border: '1.5px solid var(--border2)', background: 'var(--surf2)', color: 'var(--txt)', fontSize: '0.9375rem', fontWeight: 600, outline: 'none', width: 120, textAlign: 'right' }}
+            />
+          </div>
+          {[
+            { key: 'age', label: 'Age', unit: 'yrs', min: 10, max: 100 },
+            { key: 'weight', label: 'Weight', unit: 'kg', min: 30, max: 250 },
+            { key: 'height', label: 'Height', unit: 'cm', min: 120, max: 230 },
+          ].map(({ key, label, unit, min, max }) => (
+            <div key={key} className="settings-row">
+              <div className="settings-row-icon" style={{ fontSize: '0.875rem' }}>
+                {key === 'age' ? '🎂' : key === 'weight' ? '⚖️' : '📏'}
+              </div>
+              <div className="settings-row-info">
+                <div className="settings-row-label">{label}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="range" min={min} max={max} value={profile[key] || 0}
+                  onChange={e => updateProfile({ [key]: parseFloat(e.target.value) })}
+                  style={{ width: 80, accentColor: 'var(--g500)' }}
+                />
+                <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--g600)', minWidth: 52, textAlign: 'right' }}>
+                  {profile[key]} {unit}
+                </span>
+              </div>
+            </div>
+          ))}
+          <div className="settings-row">
+            <div className="settings-row-icon">🏃</div>
+            <div className="settings-row-info">
+              <div className="settings-row-label">Activity</div>
+            </div>
+            <select value={profile.activity || 'sedentary'} onChange={e => updateProfile({ activity: e.target.value })}
+              style={{ height: 36, padding: '0 8px', borderRadius: 'var(--r8)', border: '1.5px solid var(--border2)', background: 'var(--surf2)', color: 'var(--txt)', fontSize: '0.8125rem', fontWeight: 500 }}>
+              {Object.entries(ACTIVITY_LABELS).map(([val, { label }]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-icon">🎯</div>
+            <div className="settings-row-info">
+              <div className="settings-row-label">Goal</div>
+            </div>
+            <select value={profile.goal || 'loss'} onChange={e => updateProfile({ goal: e.target.value })}
+              style={{ height: 36, padding: '0 8px', borderRadius: 'var(--r8)', border: '1.5px solid var(--border2)', background: 'var(--surf2)', color: 'var(--txt)', fontSize: '0.8125rem', fontWeight: 500 }}>
+              {Object.entries(GOAL_LABELS).map(([val, { label }]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Calculated Targets */}
+        <p className="settings-group-label">Calculated Targets</p>
         <div className="settings-group">
           <div style={{ padding: 16 }}>
             <div className="targets-row">
               <div className="target-item">
-                <div className="target-val">{DAILY_TARGETS.protein.min}–{DAILY_TARGETS.protein.max}g</div>
+                <div className="target-val">{targets.protein.goal}g</div>
                 <div className="target-unit">Protein</div>
               </div>
               <div className="target-item">
-                <div className="target-val">{DAILY_TARGETS.calories.min}–{DAILY_TARGETS.calories.max}</div>
+                <div className="target-val">{targets.calories.goal}</div>
                 <div className="target-unit">Calories</div>
               </div>
               <div className="target-item">
-                <div className="target-val">{DAILY_TARGETS.water.min}–{DAILY_TARGETS.water.max}L</div>
+                <div className="target-val">{targets.water.goal}L</div>
                 <div className="target-unit">Water</div>
               </div>
             </div>
             <p className="caption" style={{ marginTop: 10 }}>
-              Targets set for 80kg sedentary male, fat loss goal.
+              Auto-calculated from your profile. Updates instantly when you change any value above.
             </p>
           </div>
         </div>
