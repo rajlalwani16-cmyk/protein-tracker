@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'Protein Tracker — Raj',
-        short_name: 'Protein',
+        name: 'Meals',
+        short_name: 'Meals',
         description: 'Daily nutrition and protein tracking for 100g protein / 1900 kcal goals',
         theme_color: '#1A4731',
         background_color: '#FDF6EC',
