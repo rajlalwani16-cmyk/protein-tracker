@@ -89,7 +89,18 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
-  background: #1A4731; /* matches header — kills the white status-bar line */
+  background: #1A4731;
+}
+/* Plug the 1px gap between OS status bar and app content */
+html::before {
+  content: '';
+  display: block;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: calc(env(safe-area-inset-top) + 2px);
+  background: #1A4731;
+  z-index: 99999;
+  pointer-events: none;
 }
 body {
   font-family: 'Outfit', system-ui, sans-serif;
