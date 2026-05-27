@@ -55,6 +55,7 @@ export const PRESET_MEALS = [
       { id: 'eggFriedRice', name: 'Egg Fried Rice + Chickpeas', emoji: '🍳', protein: 30, calories: 480 },
       { id: 'shakshuka', name: 'Shakshuka', emoji: '🍅', protein: 22, calories: 320 },
       { id: 'pastaCeci', name: 'Pasta e Ceci', emoji: '🍝', protein: 35, calories: 550 },
+      { id: 'spicyNoodles', name: 'Spicy Egg Fried Noodles', emoji: '🍜', protein: 28, calories: 490 },
     ],
     swaps: [
       { name: 'Dal Tadka + Roti', protein: 16, calories: 450, note: 'Lighter option' },

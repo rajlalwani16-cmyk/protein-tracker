@@ -243,6 +243,36 @@ export const RECIPES = [
     ]
   },
   {
+    id: 'spicyNoodles',
+    name: 'Spicy Egg Fried Noodles',
+    emoji: '🍜',
+    protein: 28,
+    calories: 490,
+    time: 20,
+    tags: ['High Protein', 'Quick', 'Asian', 'Spicy'],
+    ingredients: [
+      '200g noodles (hakka, instant, or spaghetti)',
+      '4 eggs',
+      '1.5 cups frozen vegetables',
+      '1 onion, thinly sliced',
+      '4 garlic cloves, minced',
+      '2 tbsp butter',
+      '2 tbsp soy sauce',
+      '2 tbsp schezwan sauce',
+      '1 tbsp sriracha',
+      '1 tbsp ketchup',
+      'Salt and pepper to taste'
+    ],
+    steps: [
+      'Cook noodles until just al dente — slightly underdone. Drain, rinse with cold water, toss with a few drops of oil so they don\'t stick. Set aside.',
+      'Heat butter in a wok on high heat. Beat eggs with salt and pepper, scramble quickly — pull out when just set (still slightly soft). Set aside.',
+      'In the same pan on high heat, add more butter if needed. Stir-fry onion and garlic for 2–3 minutes until onions soften and char at edges.',
+      'Add frozen vegetables directly from frozen. Stir-fry on high heat 3–4 minutes until cooked through and any moisture evaporates — you want char, not steam.',
+      'Push everything to the side. Add soy sauce, schezwan, sriracha, and ketchup into the center — let sizzle 30 seconds, then mix everything together.',
+      'Add noodles and scrambled eggs. Toss on high heat for 2 minutes until well coated and slightly crispy in spots. Taste and adjust — more schezwan for heat, more soy for salt, more ketchup to balance.'
+    ]
+  },
+  {
     id: 'paneerCapsicum',
     name: 'Paneer with Capsicum (Kadai Style)',
     emoji: '🧀',

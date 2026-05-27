@@ -105,6 +105,15 @@ export const FOOD_DB = [
   { name: 'Chai with milk (150ml)', protein: 3, calories: 70, unit: 'cup', tags: ['indian', 'drink'], perUnit: true },
   { name: 'Coffee (black)', protein: 0.3, calories: 5, unit: '240ml', tags: ['drink'], perUnit: true },
 
+  // ── Recipes (per serving) ─────────────────────────────────────────
+  { name: 'Spicy Egg Fried Noodles', protein: 28, calories: 490, unit: 'serving', tags: ['asian', 'recipe'], perUnit: true },
+  { name: 'Overnight Oats with Greek Yogurt & PB', protein: 28, calories: 420, unit: 'serving', tags: ['breakfast', 'recipe'], perUnit: true },
+  { name: 'Egg Fried Rice with Chickpeas', protein: 30, calories: 480, unit: 'serving', tags: ['asian', 'recipe'], perUnit: true },
+  { name: 'Shakshuka', protein: 22, calories: 320, unit: 'serving', tags: ['recipe'], perUnit: true },
+  { name: 'Pasta e Ceci', protein: 35, calories: 550, unit: 'serving', tags: ['italian', 'recipe'], perUnit: true },
+  { name: 'Rajma Chawal', protein: 21, calories: 520, unit: 'serving', tags: ['indian', 'recipe'], perUnit: true },
+  { name: 'Paneer Kadai with Capsicum', protein: 22, calories: 380, unit: 'serving', tags: ['indian', 'recipe'], perUnit: true },
+
   // ── Condiments / Extras ───────────────────────────────────────────
   { name: 'Olive Oil (1 tbsp)', protein: 0, calories: 119, unit: 'tbsp', tags: ['fat'], perUnit: true },
   { name: 'Butter (1 tsp)', protein: 0, calories: 36, unit: 'tsp', tags: ['fat'], perUnit: true },
