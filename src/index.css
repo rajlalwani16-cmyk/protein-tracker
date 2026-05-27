@@ -130,7 +130,6 @@ img, svg { display: block; max-width: 100%; }
 .page {
   flex: 1;
   padding-bottom: calc(var(--navH) + var(--safeB) + 16px);
-  padding-top: calc(var(--safeT));
   min-height: 100dvh;
 }
 
