@@ -315,14 +315,7 @@ h3 { font-size: 1rem; font-weight: 600; }
   border-radius: 50%;
   background: rgba(255,255,255,0.05);
 }
-.dash-header-deco::after {
-  content: '';
-  position: absolute;
-  bottom: -80px; left: -60px;
-  width: 200px; height: 200px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.04);
-}
+/* bottom-left circle removed — was visible through card's rounded corners */
 .dash-date-nav {
   display: flex;
   align-items: center;
@@ -368,13 +361,13 @@ h3 { font-size: 1rem; font-weight: 600; }
 .dash-progress-card {
   background: var(--surf);
   border-radius: var(--r20);
-  padding: 16px;
-  margin-top: -20px;
+  padding: 24px 16px 20px;
+  margin-top: -16px;
   box-shadow: var(--sh2);
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 /* ─── MEAL SLOT ──────────────────────────────────────────────────────────── */
