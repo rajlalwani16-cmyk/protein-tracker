@@ -135,6 +135,12 @@ function StepYou({ profile, set }) {
 
 /* ── Step 2: Age + Weight + Height ───────────────────────────────── */
 function StepBody({ profile, set }) {
+  const fields = [
+    { key: 'age',    label: 'Age',    unit: 'yrs', min: 10,  max: 100, step: 1,   emoji: '🎂' },
+    { key: 'weight', label: 'Weight', unit: 'kg',  min: 30,  max: 250, step: 0.5, emoji: '⚖️' },
+    { key: 'height', label: 'Height', unit: 'cm',  min: 120, max: 230, step: 1,   emoji: '📏' },
+  ]
+
   return (
     <div>
       <div style={{ fontSize: '2.5rem', marginBottom: 16 }}>📏</div>
@@ -145,30 +151,17 @@ function StepBody({ profile, set }) {
         Used to calculate your BMR and personalised calorie target.
       </p>
 
-      {[
-        { key: 'age', label: 'Age', unit: 'years', min: 10, max: 100, step: 1 },
-        { key: 'weight', label: 'Weight', unit: 'kg', min: 30, max: 250, step: 0.5 },
-        { key: 'height', label: 'Height', unit: 'cm', min: 120, max: 230, step: 1 },
-      ].map(({ key, label, unit, min, max, step }) => (
-        <div key={key} style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span className="label" style={{ color: 'var(--g300)' }}>{label}</span>
-            <span style={{ fontFamily: 'Fraunces, serif', color: 'var(--amberL)', fontWeight: 700, fontSize: '1.125rem' }}>
-              {profile[key]} {unit}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={min} max={max} step={step}
-            value={profile[key]}
-            onChange={e => set(key, parseFloat(e.target.value))}
-            style={{ width: '100%', accentColor: 'var(--g400)', height: 6, cursor: 'pointer' }}
-          />
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--g500)' }}>{min}</span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--g500)' }}>{max}</span>
-          </div>
-        </div>
+      {fields.map(({ key, label, unit, min, max, step, emoji }) => (
+        <Stepper
+          key={key}
+          emoji={emoji}
+          label={label}
+          unit={unit}
+          value={profile[key]}
+          min={min} max={max} step={step}
+          onChange={v => set(key, v)}
+          dark
+        />
       ))}
     </div>
   )
@@ -215,6 +208,52 @@ function StepActivity({ profile, set }) {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+/* ── Reusable stepper ────────────────────────────────────────────── */
+export function Stepper({ emoji, label, unit, value, min, max, step = 1, onChange, dark = false }) {
+  const dec = () => onChange(Math.max(min, Math.round((value - step) * 100) / 100))
+  const inc = () => onChange(Math.min(max, Math.round((value + step) * 100) / 100))
+
+  const btnStyle = (disabled) => ({
+    width: 52, height: 52,
+    borderRadius: 'var(--r12)',
+    border: dark ? '1.5px solid rgba(255,255,255,0.15)' : '1.5px solid var(--border2)',
+    background: dark ? 'rgba(255,255,255,0.07)' : 'var(--surf3)',
+    color: dark ? (disabled ? 'rgba(255,255,255,0.2)' : 'var(--g200)') : (disabled ? 'var(--txt5)' : 'var(--txt2)'),
+    fontSize: '1.5rem',
+    fontWeight: 300,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'all 150ms',
+    cursor: disabled ? 'not-allowed' : 'pointer'
+  })
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '14px 16px',
+      borderRadius: 'var(--r16)',
+      background: dark ? 'rgba(255,255,255,0.05)' : 'var(--surf)',
+      border: dark ? '1.5px solid rgba(255,255,255,0.08)' : '1px solid var(--border)',
+      marginBottom: 12
+    }}>
+      <span style={{ fontSize: '1.375rem', flexShrink: 0 }}>{emoji}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: dark ? 'var(--g400)' : 'var(--txt4)' }}>
+          {label}
+        </div>
+      </div>
+      <button style={btnStyle(value <= min)} onClick={dec} disabled={value <= min} aria-label={`Decrease ${label}`}>−</button>
+      <div style={{ minWidth: 72, textAlign: 'center' }}>
+        <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '1.375rem', color: dark ? 'var(--amberL)' : 'var(--g600)', lineHeight: 1 }}>
+          {value}
+        </span>
+        <div style={{ fontSize: '0.6875rem', color: dark ? 'var(--g400)' : 'var(--txt4)', marginTop: 2 }}>{unit}</div>
+      </div>
+      <button style={btnStyle(value >= max)} onClick={inc} disabled={value >= max} aria-label={`Increase ${label}`}>+</button>
     </div>
   )
 }

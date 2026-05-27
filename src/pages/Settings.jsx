@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { todayKey } from '../utils/date.js'
 import { computeTargets, ACTIVITY_LABELS, GOAL_LABELS } from '../utils/targets.js'
+import { Stepper } from '../components/Onboarding.jsx'
 
 export default function Settings() {
   const { settings, updateSettings, clearDay, exportData, showToast, targets, profile } = useApp()
@@ -65,29 +66,21 @@ export default function Settings() {
               style={{ height: 36, padding: '0 10px', borderRadius: 'var(--r8)', border: '1.5px solid var(--border2)', background: 'var(--surf2)', color: 'var(--txt)', fontSize: '0.9375rem', fontWeight: 600, outline: 'none', width: 120, textAlign: 'right' }}
             />
           </div>
-          {[
-            { key: 'age', label: 'Age', unit: 'yrs', min: 10, max: 100 },
-            { key: 'weight', label: 'Weight', unit: 'kg', min: 30, max: 250 },
-            { key: 'height', label: 'Height', unit: 'cm', min: 120, max: 230 },
-          ].map(({ key, label, unit, min, max }) => (
-            <div key={key} className="settings-row">
-              <div className="settings-row-icon" style={{ fontSize: '0.875rem' }}>
-                {key === 'age' ? '🎂' : key === 'weight' ? '⚖️' : '📏'}
-              </div>
-              <div className="settings-row-info">
-                <div className="settings-row-label">{label}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input type="range" min={min} max={max} value={profile[key] || 0}
-                  onChange={e => updateProfile({ [key]: parseFloat(e.target.value) })}
-                  style={{ width: 80, accentColor: 'var(--g500)' }}
-                />
-                <span style={{ fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--g600)', minWidth: 52, textAlign: 'right' }}>
-                  {profile[key]} {unit}
-                </span>
-              </div>
-            </div>
-          ))}
+          <div style={{ padding: '4px 16px 8px' }}>
+            {[
+              { key: 'age',    label: 'Age',    unit: 'yrs', min: 10,  max: 100, step: 1,   emoji: '🎂' },
+              { key: 'weight', label: 'Weight', unit: 'kg',  min: 30,  max: 250, step: 0.5, emoji: '⚖️' },
+              { key: 'height', label: 'Height', unit: 'cm',  min: 120, max: 230, step: 1,   emoji: '📏' },
+            ].map(({ key, label, unit, min, max, step, emoji }) => (
+              <Stepper
+                key={key}
+                emoji={emoji} label={label} unit={unit}
+                value={profile[key] || min}
+                min={min} max={max} step={step}
+                onChange={v => updateProfile({ [key]: v })}
+              />
+            ))}
+          </div>
           <div className="settings-row">
             <div className="settings-row-icon">🏃</div>
             <div className="settings-row-info">
