@@ -429,6 +429,20 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
             </div>
           )}
 
+          {/* Section divider — only when both recipes and DB results present */}
+          {matchedRecipes.length > 0 && results.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              margin: '4px 0 8px',
+            }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--txt5)', whiteSpace: 'nowrap' }}>
+                Food database
+              </span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+          )}
+
           {/* Database results */}
           {results.map((food, i) => (
             <div key={i}>
