@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { todayKey } from '../utils/date.js'
 import FoodSearch from '../components/FoodSearch.jsx'
+import AiDishLogger from '../components/AiDishLogger.jsx'
 import { RECIPES } from '../data/recipes.js'
 
 function QuickRecipes({ dateKey }) {
@@ -58,6 +59,7 @@ export default function LogFood() {
   const dateKey = todayKey()
   const dayLog = getDay(dateKey)
   const logged = dayLog.freeLog || []
+  const [aiQuery, setAiQuery] = useState(null)
 
   const totalProtein = logged.reduce((s, i) => s + (i.protein || 0), 0).toFixed(1)
   const totalCalories = logged.reduce((s, i) => s + (i.calories || 0), 0)
@@ -112,8 +114,15 @@ export default function LogFood() {
       </div>
 
       <div className="page-content" style={{ paddingTop: 20 }}>
-        {/* Search */}
-        <FoodSearch dateKey={dateKey} />
+        {/* Search + AI parse */}
+        <FoodSearch dateKey={dateKey} onAiParse={setAiQuery} />
+        {aiQuery && (
+          <AiDishLogger
+            query={aiQuery}
+            dateKey={dateKey}
+            onDone={() => setAiQuery(null)}
+          />
+        )}
 
         {/* Quick Log — My Recipes */}
         <div className="section-header" style={{ marginTop: 20 }}>

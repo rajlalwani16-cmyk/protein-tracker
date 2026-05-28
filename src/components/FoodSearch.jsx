@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { searchByName, searchByBarcode } from '../utils/api.js'
 import { searchOfflineDB } from '../data/foodDatabase.js'
 import { scaleNutrition } from '../utils/nutrition.js'
 import BarcodeScanner from './BarcodeScanner.jsx'
 
-export default function FoodSearch({ dateKey }) {
+export default function FoodSearch({ dateKey, onAiParse }) {
   const { addFreeLog, showToast } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -14,13 +14,35 @@ export default function FoodSearch({ dateKey }) {
   const [selected, setSelected] = useState(null)
   const [qty, setQty] = useState(100)
   const [qtyUnit, setQtyUnit] = useState('g')
+  const [micAvailable, setMicAvailable] = useState(false)
+  const [listening, setListening] = useState(false)
   const debounceRef = useRef(null)
+  const recognitionRef = useRef(null)
+
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) return
+    setMicAvailable(true)
+    const rec = new SR()
+    rec.continuous = false
+    rec.interimResults = false
+    rec.lang = 'en-IN'
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setQuery(transcript)
+      setListening(false)
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => doSearch(transcript), 400)
+    }
+    rec.onerror = () => setListening(false)
+    rec.onend = () => setListening(false)
+    recognitionRef.current = rec
+  }, [])
 
   const doSearch = useCallback(async (q) => {
     if (!q || q.trim().length < 2) { setResults([]); return }
     setLoading(true)
 
-    // Always show offline results immediately
     const offline = searchOfflineDB(q)
     setResults(offline.map(f => ({ ...f, source: 'offline' })))
 
@@ -88,6 +110,21 @@ export default function FoodSearch({ dateKey }) {
     setQty(100)
   }
 
+  const toggleMic = () => {
+    if (!recognitionRef.current) return
+    if (listening) {
+      recognitionRef.current.stop()
+      setListening(false)
+    } else {
+      setListening(true)
+      recognitionRef.current.start()
+    }
+  }
+
+  const triggerAiParse = () => {
+    if (query.trim() && onAiParse) onAiParse(query.trim())
+  }
+
   return (
     <>
       {showScanner && (
@@ -97,30 +134,86 @@ export default function FoodSearch({ dateKey }) {
         />
       )}
 
-      <div className="food-search-wrap">
+      <div className="food-search-wrap" style={{ position: 'relative' }}>
         <svg className="food-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
         <input
           type="search"
           className="food-search-input"
-          placeholder="Search any food — pizza, dal, eggs…"
+          placeholder="Search or describe what you made…"
           value={query}
           onChange={handleQueryChange}
-          aria-label="Search food"
+          aria-label="Search food or describe a dish"
           autoComplete="off"
+          style={{ paddingRight: micAvailable ? 124 : 86 }}
         />
-        <button
-          className="barcode-btn"
-          onClick={() => setShowScanner(true)}
-          aria-label="Scan barcode"
-          title="Scan barcode"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M3 9V5a2 2 0 0 1 2-2h4M3 15v4a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4M21 15v4a2 2 0 0 1-2 2h-4"/>
-            <path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>
-          </svg>
-        </button>
+        <div style={{
+          position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', gap: 2, alignItems: 'center',
+        }}>
+          {micAvailable && (
+            <button
+              onClick={toggleMic}
+              aria-label={listening ? 'Stop listening' : 'Describe by voice'}
+              title="Describe by voice"
+              style={{
+                width: 36, height: 36, borderRadius: 'var(--r8)',
+                background: listening ? 'rgba(224,92,58,0.12)' : 'var(--g50)',
+                color: listening ? '#e05c3a' : 'var(--g600)',
+                border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {listening ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#e05c3a" stroke="#e05c3a" strokeWidth="2" strokeLinecap="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3"/>
+                  <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/>
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3"/>
+                  <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/>
+                </svg>
+              )}
+            </button>
+          )}
+          {onAiParse && (
+            <button
+              onClick={triggerAiParse}
+              disabled={!query.trim()}
+              aria-label="Parse as custom dish with AI"
+              title="Parse as custom dish"
+              style={{
+                width: 36, height: 36, borderRadius: 'var(--r8)',
+                background: 'var(--g50)', color: 'var(--g600)',
+                border: 'none', cursor: query.trim() ? 'pointer' : 'not-allowed',
+                opacity: query.trim() ? 1 : 0.4,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => setShowScanner(true)}
+            aria-label="Scan barcode"
+            title="Scan barcode"
+            style={{
+              width: 36, height: 36, borderRadius: 'var(--r8)',
+              background: 'var(--g50)', color: 'var(--g600)',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 9V5a2 2 0 0 1 2-2h4M3 15v4a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4M21 15v4a2 2 0 0 1-2 2h-4"/>
+              <path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -200,7 +293,27 @@ export default function FoodSearch({ dateKey }) {
       {query.length >= 2 && results.length === 0 && !loading && (
         <div className="empty-state">
           <div className="empty-state-icon">🔍</div>
-          <p>No results for "{query}".<br />Try a simpler term or check spelling.</p>
+          <p style={{ marginBottom: onAiParse ? 12 : 0 }}>
+            No results for "{query}".<br />Try a simpler term or check spelling.
+          </p>
+          {onAiParse && (
+            <button
+              onClick={triggerAiParse}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '9px 16px',
+                background: 'var(--g700)', color: 'white',
+                border: 'none', borderRadius: 'var(--r12)',
+                fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                marginTop: 4,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              Parse as a custom dish
+            </button>
+          )}
         </div>
       )}
     </>

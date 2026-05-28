@@ -1,71 +1,75 @@
-# AI Dish Logger — Design Spec
-Date: 2026-05-28
+# AI Dish Logger — Design Spec (Revised)
+Date: 2026-05-28 (revised: unified input)
 
 ## Overview
 
-Add an AI-powered "Describe a Dish" mode to the Log Food page. User types or speaks a free-form description of what they cooked/ate; Groq LLM parses it and returns estimated protein and calories; user confirms (with optional edits) and logs.
+Add AI-powered dish parsing to the existing Log Food search flow. No tab switcher — one unified input handles both search and custom dish description. Groq parses free-text descriptions into estimated protein/calories when the user asks.
 
-## Entry Point
+## Unified Input Flow
 
-The existing search bar area on LogFood is replaced by a segmented tab control:
+The existing search bar gains two new buttons in the input row:
+- **Mic button** (🎤) — Web Speech API, auto-fills the search input on result
+- **Sparkle button** (✨) — always visible, taps to send current input text to Groq for AI parsing
 
-- **Search tab** — renders existing `FoodSearch` component unchanged
-- **Describe tab** — renders new `AiDishLogger` component
+The search-as-you-type behavior is **unchanged**. Users can still search normally.
 
-Default active tab: Search (existing behaviour preserved).
+### Two ways to trigger AI parse:
 
-## AiDishLogger Component Flow
+1. **Sparkle button** — always visible in input row, works even when search results exist
+2. **"Parse as custom dish" prompt** — appears in the no-results state instead of just "no results"
 
-1. Textarea with placeholder: `"e.g. made rice with 2 eggs and some dal, or leftover chicken curry with roti"`
-2. Mic button (top-right of textarea) — uses Web Speech API (`SpeechRecognition`), auto-fills textarea on result; falls back gracefully if API unavailable (button hidden)
-3. "Parse with AI" button — disabled when textarea is empty
-4. **Loading state**: button shows spinner, textarea disabled
-5. **Confirmation card** (replaces parse button area after successful parse):
-   - Dish name (read-only display)
-   - Protein field (editable number input, pre-filled by AI)
-   - Calories field (editable number input, pre-filled by AI)
-   - Note: "AI estimate — adjust if portion was larger or smaller"
-   - "Log this dish ✓" button → calls `addFreeLog` → toast → resets component
-6. **Error state**: inline error message below textarea if Groq call fails; textarea re-enabled
+### After AI parse triggers:
 
-## Groq Integration
+A confirmation card slides in below the search/results area:
+- Dish name (read-only)
+- Protein field (editable number, pre-filled by AI)
+- Calories field (editable number, pre-filled by AI)
+- Note: "AI estimate — adjust if needed"
+- "Log this dish ✓" button → `addFreeLog` → toast → card dismisses, input clears
 
-**File:** `src/utils/groq.js`
+## Architecture
 
-- Model: `llama-3.1-8b-instant`
-- Endpoint: `https://api.groq.com/openai/v1/chat/completions`
-- API key: `import.meta.env.VITE_GROQ_API_KEY` (stored in `.env`, git-ignored)
-- Response format: JSON mode (`response_format: { type: "json_object" }`)
-- Prompt instructs model to return: `{ dishName: string, estimatedProteinG: number, estimatedCaloriesKcal: number }`
-- Prompt includes user context: adult male, Indian cooking common, estimate for 1 typical home-cooked serving
-- Timeout: 15s; on timeout show error state
-
-## API Key Storage
-
-Key stored as `VITE_GROQ_API_KEY` in `.env` at project root (already git-ignored via default Vite setup). Baked into bundle at build time. Acceptable for personal-use PWA; key can be rotated if ever exposed.
-
-## Files Changed
+Three files changed from original spec (no tab switcher needed in LogFood):
 
 | File | Change |
 |------|--------|
-| `src/pages/LogFood.jsx` | Replace search bar with tab switcher; render `FoodSearch` or `AiDishLogger` based on active tab |
-| `src/components/AiDishLogger.jsx` | New component — full describe/parse/confirm flow |
-| `src/utils/groq.js` | New utility — Groq API call, prompt, JSON parsing |
-| `.env` | New file — `VITE_GROQ_API_KEY=<key>` |
+| `src/utils/groq.js` | New — Groq API call, returns `{ dishName, protein, calories }` |
+| `src/components/FoodSearch.jsx` | Add mic + sparkle buttons; "parse as dish" in no-results state; `onAiParse` prop callback |
+| `src/components/AiDishLogger.jsx` | New — receives `query` prop, auto-calls Groq on mount, shows confirmation card |
+| `src/pages/LogFood.jsx` | Add `aiQuery` state; pass `onAiParse` to FoodSearch; render AiDishLogger when `aiQuery` set |
+| `.env` | New — `VITE_GROQ_API_KEY` |
 
-## Data Shape Logged
+## Component Communication
 
-Calls existing `addFreeLog(dateKey, { name, protein, calories, quantity: 1, unit: 'serving' })` — no schema changes.
+```
+LogFood
+  ├── aiQuery state (null | string)
+  ├── FoodSearch  onAiParse={setAiQuery}
+  └── AiDishLogger  query={aiQuery}  onDone={() => setAiQuery(null)}   [renders only when aiQuery set]
+```
+
+`FoodSearch` calls `onAiParse(query)` on sparkle tap or no-results parse tap.
+`LogFood` sets `aiQuery` → `AiDishLogger` mounts → auto-calls Groq → shows card.
+On log or dismiss, `onDone()` clears `aiQuery` → `AiDishLogger` unmounts.
+
+## Groq Integration
+
+- Model: `llama-3.1-8b-instant`
+- Endpoint: `https://api.groq.com/openai/v1/chat/completions`
+- API key: `import.meta.env.VITE_GROQ_API_KEY`
+- Response format: JSON mode
+- Returns: `{ dishName, estimatedProteinG, estimatedCaloriesKcal }`
+- Timeout: 15s
+- User context baked into system prompt: adult male, Indian home cooking common, single serving
 
 ## Error Handling
 
-- Groq API down / timeout → show inline error, re-enable textarea
-- Web Speech API unavailable (Safari, no mic permission) → mic button hidden, text-only mode
-- Empty response / malformed JSON from LLM → show error "Couldn't parse — try rephrasing"
-- API key missing → console.error only (dev), graceful error message in UI
+- Groq down/timeout → error message in confirmation card area, dismiss button
+- Web Speech unavailable (Safari) → mic button hidden
+- Malformed AI response → "Couldn't parse — try rephrasing"
+- Empty query → sparkle button disabled
 
 ## Out of Scope
 
-- Ingredient-level breakdown display (show dish name only, not per-ingredient list)
-- Saving custom dishes to My Recipes from this flow
-- Voice input on desktop (Web Speech is mobile-focused; desktop gets text-only)
+- Saving AI-parsed dishes to My Recipes
+- Ingredient-level breakdown
