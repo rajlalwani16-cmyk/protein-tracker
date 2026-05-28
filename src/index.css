@@ -131,6 +131,7 @@ img, svg { display: block; max-width: 100%; }
   flex: 1;
   padding-bottom: calc(var(--navH) + var(--safeB) + 16px);
   min-height: 100dvh;
+  background: var(--bg);
 }
 
 .page-content {
@@ -585,6 +586,10 @@ h3 { font-size: 1rem; font-weight: 600; }
 .streak-celebrate-sub { color: var(--g300); margin-top: 4px; }
 
 /* ─── FOOD LOGGER ────────────────────────────────────────────────────────── */
+@keyframes mic-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
 .food-search-wrap { position: relative; }
 .food-search-input {
   width: 100%;
@@ -1081,7 +1086,7 @@ h3 { font-size: 1rem; font-weight: 600; }
 /* ─── PAGE TRANSITIONS ───────────────────────────────────────────────────── */
 .page-enter { animation: fadeSlideIn var(--dur2) var(--ease); }
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
