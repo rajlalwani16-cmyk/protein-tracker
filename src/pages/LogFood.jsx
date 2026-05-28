@@ -115,7 +115,7 @@ export default function LogFood() {
 
       <div className="page-content" style={{ paddingTop: 20 }}>
         {/* Search + AI parse */}
-        <FoodSearch dateKey={dateKey} onAiParse={setAiQuery} />
+        <FoodSearch dateKey={dateKey} onAiParse={setAiQuery} suppressResults={!!aiQuery} />
         {aiQuery && (
           <AiDishLogger
             query={aiQuery}

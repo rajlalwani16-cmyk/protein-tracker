@@ -5,7 +5,7 @@ import { searchOfflineDB } from '../data/foodDatabase.js'
 import { scaleNutrition } from '../utils/nutrition.js'
 import BarcodeScanner from './BarcodeScanner.jsx'
 
-export default function FoodSearch({ dateKey, onAiParse }) {
+export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
   const { addFreeLog, showToast } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -31,8 +31,8 @@ export default function FoodSearch({ dateKey, onAiParse }) {
       const transcript = e.results[0][0].transcript
       setQuery(transcript)
       setListening(false)
-      clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => doSearch(transcript), 400)
+      // Voice input always goes straight to AI parse
+      if (onAiParse) onAiParse(transcript)
     }
     rec.onerror = () => setListening(false)
     rec.onend = () => setListening(false)
@@ -64,6 +64,8 @@ export default function FoodSearch({ dateKey, onAiParse }) {
   const handleQueryChange = (e) => {
     const q = e.target.value
     setQuery(q)
+    // Typing new text dismisses any active AI card
+    if (onAiParse && q !== query) onAiParse(null)
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => doSearch(q), 400)
   }
@@ -121,10 +123,6 @@ export default function FoodSearch({ dateKey, onAiParse }) {
     }
   }
 
-  const triggerAiParse = () => {
-    if (query.trim() && onAiParse) onAiParse(query.trim())
-  }
-
   return (
     <>
       {showScanner && (
@@ -134,35 +132,36 @@ export default function FoodSearch({ dateKey, onAiParse }) {
         />
       )}
 
-      <div className="food-search-wrap" style={{ position: 'relative' }}>
+      <div className="food-search-wrap">
         <svg className="food-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
         <input
           type="search"
           className="food-search-input"
-          placeholder="Search or describe what you made…"
+          placeholder={micAvailable ? 'Search food, or tap 🎤 to describe…' : 'Search any food — pizza, dal, eggs…'}
           value={query}
           onChange={handleQueryChange}
           aria-label="Search food or describe a dish"
           autoComplete="off"
-          style={{ paddingRight: micAvailable ? 124 : 86 }}
+          style={{ paddingRight: micAvailable ? 90 : 52 }}
         />
         <div style={{
           position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-          display: 'flex', gap: 2, alignItems: 'center',
+          display: 'flex', gap: 4,
         }}>
           {micAvailable && (
             <button
               onClick={toggleMic}
-              aria-label={listening ? 'Stop listening' : 'Describe by voice'}
-              title="Describe by voice"
+              aria-label={listening ? 'Stop listening' : 'Describe your meal by voice'}
+              title={listening ? 'Tap to stop' : 'Describe by voice → AI parse'}
               style={{
                 width: 36, height: 36, borderRadius: 'var(--r8)',
-                background: listening ? 'rgba(224,92,58,0.12)' : 'var(--g50)',
+                background: listening ? 'rgba(224,92,58,0.15)' : 'var(--g50)',
                 color: listening ? '#e05c3a' : 'var(--g600)',
                 border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               {listening ? (
@@ -178,35 +177,11 @@ export default function FoodSearch({ dateKey, onAiParse }) {
               )}
             </button>
           )}
-          {onAiParse && (
-            <button
-              onClick={triggerAiParse}
-              disabled={!query.trim()}
-              aria-label="Parse as custom dish with AI"
-              title="Parse as custom dish"
-              style={{
-                width: 36, height: 36, borderRadius: 'var(--r8)',
-                background: 'var(--g50)', color: 'var(--g600)',
-                border: 'none', cursor: query.trim() ? 'pointer' : 'not-allowed',
-                opacity: query.trim() ? 1 : 0.4,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-            </button>
-          )}
           <button
+            className="barcode-btn"
             onClick={() => setShowScanner(true)}
             aria-label="Scan barcode"
             title="Scan barcode"
-            style={{
-              width: 36, height: 36, borderRadius: 'var(--r8)',
-              background: 'var(--g50)', color: 'var(--g600)',
-              border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M3 9V5a2 2 0 0 1 2-2h4M3 15v4a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4M21 15v4a2 2 0 0 1-2 2h-4"/>
@@ -222,7 +197,7 @@ export default function FoodSearch({ dateKey, onAiParse }) {
         </div>
       )}
 
-      {results.length > 0 && !loading && (
+      {results.length > 0 && !loading && !suppressResults && (
         <div className="food-results">
           {results.map((food, i) => (
             <div key={i}>
@@ -287,6 +262,26 @@ export default function FoodSearch({ dateKey, onAiParse }) {
               )}
             </div>
           ))}
+
+          {onAiParse && (
+            <button
+              onClick={() => onAiParse(query)}
+              style={{
+                width: '100%', padding: '10px 14px',
+                background: 'transparent',
+                border: '1.5px dashed var(--border2)',
+                borderRadius: 'var(--r12)',
+                fontSize: '0.8125rem', color: 'var(--txt3)',
+                cursor: 'pointer', marginTop: 4,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              Not what you made? Parse as a custom dish
+            </button>
+          )}
         </div>
       )}
 
@@ -294,21 +289,20 @@ export default function FoodSearch({ dateKey, onAiParse }) {
         <div className="empty-state">
           <div className="empty-state-icon">🔍</div>
           <p style={{ marginBottom: onAiParse ? 12 : 0 }}>
-            No results for "{query}".<br />Try a simpler term or check spelling.
+            No results for "{query}".<br />Try a simpler term, or parse it as a custom dish.
           </p>
           {onAiParse && (
             <button
-              onClick={triggerAiParse}
+              onClick={() => onAiParse(query)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '9px 16px',
+                padding: '9px 18px',
                 background: 'var(--g700)', color: 'white',
                 border: 'none', borderRadius: 'var(--r12)',
                 fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-                marginTop: 4,
               }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
               Parse as a custom dish
