@@ -9,26 +9,39 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
   const [protein, setProtein] = useState('')
   const [calories, setCalories] = useState('')
   const [error, setError] = useState('')
+  const [refining, setRefining] = useState(false)
+  const [refineText, setRefineText] = useState(query)
 
-  useEffect(() => {
-    let cancelled = false
+  const runParse = (description, cancelled) => {
     setStatus('loading')
     setError('')
-    parseDescriptionWithGroq(query)
+    parseDescriptionWithGroq(description)
       .then(parsed => {
-        if (cancelled) return
+        if (cancelled?.value) return
         setResult(parsed)
         setProtein(String(parsed.protein))
         setCalories(String(parsed.calories))
+        setRefineText(description)
+        setRefining(false)
         setStatus('parsed')
       })
       .catch(err => {
-        if (cancelled) return
+        if (cancelled?.value) return
         setError(err.message || "Couldn't parse — try rephrasing")
         setStatus('error')
       })
-    return () => { cancelled = true }
+  }
+
+  useEffect(() => {
+    const cancelled = { value: false }
+    runParse(query, cancelled)
+    return () => { cancelled.value = true }
   }, [query])
+
+  const handleRefine = () => {
+    if (!refineText.trim()) return
+    runParse(refineText, null)
+  }
 
   const handleLog = () => {
     addFreeLog(dateKey, {
@@ -56,7 +69,7 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
         <div className="spinner" style={{ width: 18, height: 18, flexShrink: 0 }} />
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--txt)' }}>Estimating nutrition…</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--txt3)', marginTop: 2 }}>"{query}"</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--txt3)', marginTop: 2 }}>"{refineText || query}"</div>
         </div>
       </div>
     )
@@ -79,10 +92,8 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
             background: 'var(--surf2)',
             border: '1.5px solid var(--border)',
             borderRadius: 'var(--r8)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            color: 'var(--txt2)',
+            fontSize: '0.875rem', fontWeight: 600,
+            cursor: 'pointer', color: 'var(--txt2)',
           }}
         >
           Dismiss
@@ -99,6 +110,7 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
       padding: 16,
       marginTop: 8,
     }}>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>🍱</span>
         <div>
@@ -119,6 +131,7 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
         </button>
       </div>
 
+      {/* Editable macro boxes */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
         {[
           { label: 'Protein', value: protein, setter: setProtein, unit: 'grams' },
@@ -167,10 +180,83 @@ export default function AiDishLogger({ query, dateKey, onDone }) {
           background: 'var(--g700)', color: 'white',
           border: 'none', borderRadius: 'var(--r12)',
           fontSize: '0.9375rem', fontWeight: 600, cursor: 'pointer',
+          marginBottom: 10,
         }}
       >
         Log this dish ✓
       </button>
+
+      {/* Refine estimate */}
+      {!refining ? (
+        <button
+          onClick={() => setRefining(true)}
+          style={{
+            width: '100%', padding: '9px 14px',
+            background: 'transparent',
+            border: '1.5px dashed var(--border2)',
+            borderRadius: 'var(--r10, var(--r8))',
+            fontSize: '0.8125rem', color: 'var(--txt3)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            <path d="M11 8v6M8 11h6"/>
+          </svg>
+          Refine estimate — add portion size or ingredients
+        </button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            value={refineText}
+            onChange={e => setRefineText(e.target.value)}
+            placeholder="e.g. with extra ghee, thick portion, served with 2 rotis…"
+            rows={2}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1.5px solid var(--border2)',
+              borderRadius: 'var(--r12)',
+              fontSize: '0.875rem',
+              background: 'var(--surf)',
+              color: 'var(--txt)',
+              fontFamily: 'inherit',
+              lineHeight: 1.5,
+              resize: 'none',
+              outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setRefining(false)}
+              style={{
+                flex: 1, padding: '9px 0',
+                background: 'transparent',
+                border: '1.5px solid var(--border)',
+                borderRadius: 'var(--r8)',
+                fontSize: '0.875rem', color: 'var(--txt3)',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRefine}
+              disabled={!refineText.trim()}
+              style={{
+                flex: 2, padding: '9px 0',
+                background: 'var(--g700)', color: 'white',
+                border: 'none', borderRadius: 'var(--r8)',
+                fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Re-estimate ↻
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

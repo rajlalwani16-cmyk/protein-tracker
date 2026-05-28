@@ -13,21 +13,15 @@ function isDescription(query) {
   if (words.length > 4) score += 2
   else if (words.length > 2) score += 1
 
-  // Strong: cooking/eating verbs
-  if (/\b(made|cooked|had|ate|prepared|mixed|added|fried|boiled|grilled|baked|roasted|steamed|stir.fried|pan.fried|sauteed)\b/.test(q)) score += 3
+  if (/\b(made|cooked|had|ate|prepared|mixed|added|fried|boiled|grilled|baked|roasted|steamed|sauteed)\b/.test(q)) score += 3
 
-  // Connectors — each one adds score
-  const connectors = (q.match(/\b(with|and|some|bit of|piece of|bowl of|cup of|scoop of|along with|on the side|on top)\b/g) || [])
+  const connectors = (q.match(/\b(with|and|some|bit of|piece of|bowl of|cup of|scoop of|along with|on top)\b/g) || [])
   score += connectors.length * 1.5
 
-  // Quantity + food unit combos
   if (/\d+\s*(egg|piece|bowl|cup|roti|slice|scoop|serving|gram|ml|spoon|tsp|tbsp)/i.test(q)) score += 2
   if (/\b(a bowl|a cup|a plate|a piece|a scoop|a slice|half a|a bit of|some )\b/.test(q)) score += 1.5
 
-  // Descriptive / context words
-  if (/\b(homemade|leftover|spicy|creamy|crispy|fresh|extra|drizzle|topped|sprinkled|mixed|little|lot of)\b/.test(q)) score += 1
-
-  // Personal context
+  if (/\b(homemade|leftover|spicy|creamy|crispy|fresh|extra|drizzle|topped|sprinkled|little|lot of)\b/.test(q)) score += 1
   if (/\b(i made|i had|i ate|i cooked|we had|we ate|my )\b/.test(q)) score += 2
 
   return score >= 3
@@ -42,6 +36,9 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
   const [selected, setSelected] = useState(null)
   const [qty, setQty] = useState(100)
   const [qtyUnit, setQtyUnit] = useState('g')
+  const [editProtein, setEditProtein] = useState('')
+  const [editCalories, setEditCalories] = useState('')
+  const [nutritionLocked, setNutritionLocked] = useState(false)
   const [micAvailable, setMicAvailable] = useState(false)
   const [listening, setListening] = useState(false)
   const [descMode, setDescMode] = useState(false)
@@ -92,8 +89,6 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
     const q = e.target.value
     setQuery(q)
     queryRef.current = q
-
-    // Dismiss active AI card whenever user types
     if (onAiParse) onAiParse(null)
 
     clearTimeout(searchDebounceRef.current)
@@ -109,12 +104,10 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
     setDescMode(desc)
 
     if (desc) {
-      // Description mode: skip search, fire AI after 700ms
       aiDebounceRef.current = setTimeout(() => {
         if (onAiParse) onAiParse(queryRef.current)
       }, 700)
     } else {
-      // Search mode: fire Open Food Facts after 400ms
       searchDebounceRef.current = setTimeout(() => doSearch(queryRef.current), 400)
     }
   }
@@ -137,20 +130,37 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
     }
   }
 
+  const getScaled = (food, newQty) => {
+    const baseQty = food.perUnit ? 1 : 100
+    return scaleNutrition(food.protein, food.calories, newQty, baseQty)
+  }
+
   const handleSelect = (food) => {
+    const defaultQty = food.perUnit ? 1 : 100
     setSelected(food)
-    setQty(food.perUnit ? 1 : 100)
+    setQty(defaultQty)
     setQtyUnit(food.perUnit ? food.unit : 'g')
+    setNutritionLocked(false)
+    // Init editable nutrition from base values
+    setEditProtein(String(food.protein))
+    setEditCalories(String(food.calories))
+  }
+
+  const updateQty = (newQty) => {
+    setQty(newQty)
+    if (!nutritionLocked && selected) {
+      const scaled = getScaled(selected, newQty)
+      setEditProtein(scaled.protein.toFixed(1))
+      setEditCalories(String(scaled.calories))
+    }
   }
 
   const handleAdd = () => {
     if (!selected) return
-    const baseQty = selected.perUnit ? 1 : 100
-    const scaled = scaleNutrition(selected.protein, selected.calories, qty, baseQty)
     addFreeLog(dateKey, {
       name: selected.name,
-      protein: scaled.protein,
-      calories: scaled.calories,
+      protein: Number(editProtein) || 0,
+      calories: Number(editCalories) || 0,
       quantity: qty,
       unit: qtyUnit,
     })
@@ -158,6 +168,9 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
     setQuery('')
     setResults([])
     setQty(100)
+    setEditProtein('')
+    setEditCalories('')
+    setNutritionLocked(false)
     setDescMode(false)
   }
 
@@ -172,14 +185,9 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
     }
   }
 
-  const inputBorderColor = listening
-    ? '#e05c3a'
-    : descMode
-      ? 'var(--g400)'
-      : undefined
-
+  const inputBorderColor = listening ? '#e05c3a' : descMode ? 'var(--g400)' : undefined
   const showEmptyMic = micAvailable && !query && !listening
-  const showInlineMic = micAvailable && (query || listening)
+  const showInlineMic = micAvailable && (!!query || listening)
 
   return (
     <>
@@ -190,41 +198,25 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
       {/* Search bar */}
       <div className="food-search-wrap">
         {listening ? (
-          /* Listening overlay replaces search bar content */
           <div style={{
-            height: 52,
-            borderRadius: 'var(--r16)',
-            border: '2px solid #e05c3a',
-            background: 'var(--surf)',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 14px',
-            gap: 10,
+            height: 52, borderRadius: 'var(--r16)',
+            border: '2px solid #e05c3a', background: 'var(--surf)',
+            display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10,
           }}>
             <div style={{
-              width: 10, height: 10, borderRadius: '50%',
-              background: '#e05c3a',
-              animation: 'mic-pulse 1s ease-in-out infinite',
-              flexShrink: 0,
+              width: 10, height: 10, borderRadius: '50%', background: '#e05c3a',
+              animation: 'mic-pulse 1s ease-in-out infinite', flexShrink: 0,
             }} />
-            <span style={{ fontSize: '0.9375rem', color: 'var(--txt3)', flex: 1 }}>
-              Listening…
-            </span>
-            <button
-              onClick={toggleMic}
-              aria-label="Stop listening"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--txt3)', padding: 4, fontSize: '0.875rem',
-              }}
-            >
-              ✕ Cancel
-            </button>
+            <span style={{ fontSize: '0.9375rem', color: 'var(--txt3)', flex: 1 }}>Listening…</span>
+            <button onClick={toggleMic} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--txt3)', padding: 4, fontSize: '0.875rem',
+            }}>✕ Cancel</button>
           </div>
         ) : (
           <>
             <svg className="food-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               type="search"
@@ -240,32 +232,23 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
                 transition: 'border-color 0.2s',
               }}
             />
-            {/* Inline buttons — only when there's text */}
             {showInlineMic && (
               <div style={{
                 position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                 display: 'flex', gap: 4,
               }}>
-                <button
-                  onClick={toggleMic}
-                  aria-label="Describe by voice"
-                  style={{
-                    width: 36, height: 36, borderRadius: 'var(--r8)',
-                    background: 'var(--g50)', color: 'var(--g600)',
-                    border: 'none', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
+                <button onClick={toggleMic} aria-label="Describe by voice" style={{
+                  width: 36, height: 36, borderRadius: 'var(--r8)',
+                  background: 'var(--g50)', color: 'var(--g600)',
+                  border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <rect x="9" y="2" width="6" height="12" rx="3"/>
                     <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/>
                   </svg>
                 </button>
-                <button
-                  className="barcode-btn"
-                  onClick={() => setShowScanner(true)}
-                  aria-label="Scan barcode"
-                >
+                <button className="barcode-btn" onClick={() => setShowScanner(true)} aria-label="Scan barcode">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M3 9V5a2 2 0 0 1 2-2h4M3 15v4a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4M21 15v4a2 2 0 0 1-2 2h-4"/>
                     <path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>
@@ -273,13 +256,8 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
                 </button>
               </div>
             )}
-            {/* Barcode only when no text */}
             {!showInlineMic && (
-              <button
-                className="barcode-btn"
-                onClick={() => setShowScanner(true)}
-                aria-label="Scan barcode"
-              >
+              <button className="barcode-btn" onClick={() => setShowScanner(true)} aria-label="Scan barcode">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M3 9V5a2 2 0 0 1 2-2h4M3 15v4a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4M21 15v4a2 2 0 0 1-2 2h-4"/>
                   <path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>
@@ -290,21 +268,15 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
         )}
       </div>
 
-      {/* Large speak button — only when input is empty */}
+      {/* Large speak button — only when input empty */}
       {showEmptyMic && (
-        <button
-          onClick={toggleMic}
-          style={{
-            width: '100%', marginTop: 10,
-            padding: '13px 16px',
-            background: 'var(--g50)',
-            border: '1.5px dashed var(--border2)',
-            borderRadius: 'var(--r12)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            fontSize: '0.9375rem', fontWeight: 600, color: 'var(--txt2)',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={toggleMic} style={{
+          width: '100%', marginTop: 10, padding: '13px 16px',
+          background: 'var(--g50)', border: '1.5px dashed var(--border2)',
+          borderRadius: 'var(--r12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          fontSize: '0.9375rem', fontWeight: 600, color: 'var(--txt2)', cursor: 'pointer',
+        }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <rect x="9" y="2" width="6" height="12" rx="3"/>
             <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/>
@@ -317,9 +289,7 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
       {descMode && !suppressResults && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          padding: '6px 10px',
-          fontSize: '0.75rem', color: 'var(--g500)',
-          fontWeight: 500,
+          padding: '6px 10px', fontSize: '0.75rem', color: 'var(--g500)', fontWeight: 500,
         }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
@@ -336,6 +306,37 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
 
       {results.length > 0 && !loading && !suppressResults && !descMode && (
         <div className="food-results">
+
+          {/* Pinned ~ estimate entry */}
+          {onAiParse && query.trim() && (
+            <div
+              onClick={() => onAiParse(query)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', marginBottom: 4,
+                background: 'var(--g50)',
+                border: '1.5px dashed var(--border2)',
+                borderRadius: 'var(--r12)',
+                cursor: 'pointer',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--g500)" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--txt2)' }}>
+                  ~ {query}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--txt4)' }}>
+                  AI estimate — tap to calculate
+                </div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt4)" strokeWidth="2" strokeLinecap="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </div>
+          )}
+
           {results.map((food, i) => (
             <div key={i}>
               <div
@@ -354,42 +355,80 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
                 </div>
                 <button className="add-food-btn" onClick={() => handleSelect(food)} aria-label={`Add ${food.name}`}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M12 5v14M5 12h14" />
+                    <path d="M12 5v14M5 12h14"/>
                   </svg>
                 </button>
               </div>
 
               {selected === food && (
-                <div className="qty-picker">
-                  <button className="qty-btn" onClick={() => setQty(q => Math.max(1, q - (food.perUnit ? 1 : 25)))} aria-label="Decrease">−</button>
-                  <input type="number" className="qty-input" value={qty} min="1" onChange={e => setQty(Math.max(1, Number(e.target.value)))} aria-label="Quantity" />
-                  <span className="qty-unit">{qtyUnit}</span>
-                  <button className="qty-btn" onClick={() => setQty(q => q + (food.perUnit ? 1 : 25))} aria-label="Increase">+</button>
-                  <button className="btn btn--primary btn--sm" onClick={handleAdd} style={{ marginLeft: 'auto' }}>Add ✓</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0 4px' }}>
+                  {/* Qty row */}
+                  <div className="qty-picker">
+                    <button className="qty-btn" onClick={() => updateQty(Math.max(1, qty - (food.perUnit ? 1 : 25)))} aria-label="Decrease">−</button>
+                    <input
+                      type="number"
+                      className="qty-input"
+                      value={qty}
+                      min="1"
+                      onChange={e => updateQty(Math.max(1, Number(e.target.value)))}
+                      aria-label="Quantity"
+                    />
+                    <span className="qty-unit">{qtyUnit}</span>
+                    <button className="qty-btn" onClick={() => updateQty(qty + (food.perUnit ? 1 : 25))} aria-label="Increase">+</button>
+                    <button className="btn btn--primary btn--sm" onClick={handleAdd} style={{ marginLeft: 'auto' }}>Add ✓</button>
+                  </div>
+
+                  {/* Editable nutrition row */}
+                  <div style={{ display: 'flex', gap: 6, padding: '0 2px' }}>
+                    {[
+                      { label: 'Protein', value: editProtein, setter: (v) => { setEditProtein(v); setNutritionLocked(true) }, unit: 'g' },
+                      { label: 'Calories', value: editCalories, setter: (v) => { setEditCalories(v); setNutritionLocked(true) }, unit: 'kcal' },
+                    ].map(({ label, value, setter, unit }) => (
+                      <div key={label} style={{
+                        flex: 1, background: 'var(--g50)',
+                        borderRadius: 8, padding: '6px 10px',
+                        border: nutritionLocked ? '1px solid var(--g200)' : '1px solid transparent',
+                      }}>
+                        <div style={{ fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--txt4)', marginBottom: 1 }}>
+                          {label}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                          <input
+                            type="number"
+                            value={value}
+                            min="0"
+                            onChange={e => setter(e.target.value)}
+                            style={{
+                              width: '100%', border: 'none', background: 'transparent',
+                              fontSize: '0.9375rem', fontWeight: 700, color: 'var(--g600)',
+                              fontFamily: 'inherit', outline: 'none', padding: 0,
+                            }}
+                          />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--txt4)', flexShrink: 0 }}>{unit}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {nutritionLocked && (
+                      <button
+                        onClick={() => {
+                          const scaled = getScaled(food, qty)
+                          setEditProtein(scaled.protein.toFixed(1))
+                          setEditCalories(String(scaled.calories))
+                          setNutritionLocked(false)
+                        }}
+                        title="Reset to calculated values"
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--txt4)', padding: '0 4px', fontSize: '0.75rem',
+                          alignSelf: 'center', flexShrink: 0,
+                        }}
+                      >↺</button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           ))}
-
-          {onAiParse && (
-            <button
-              onClick={() => onAiParse(query)}
-              style={{
-                width: '100%', padding: '10px 14px',
-                background: 'transparent',
-                border: '1.5px dashed var(--border2)',
-                borderRadius: 'var(--r12)',
-                fontSize: '0.8125rem', color: 'var(--txt3)',
-                cursor: 'pointer', marginTop: 4,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-              Not what you made? Parse as a custom dish
-            </button>
-          )}
         </div>
       )}
 
@@ -397,7 +436,7 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
         <div className="empty-state">
           <div className="empty-state-icon">🔍</div>
           <p style={{ marginBottom: onAiParse ? 12 : 0 }}>
-            No results for "{query}".<br />Try a simpler term, or parse it as a custom dish.
+            No results for "{query}".<br />Try a simpler term, or estimate it.
           </p>
           {onAiParse && (
             <button
@@ -413,7 +452,7 @@ export default function FoodSearch({ dateKey, onAiParse, suppressResults }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
-              Parse as a custom dish
+              ~ Estimate it
             </button>
           )}
         </div>
