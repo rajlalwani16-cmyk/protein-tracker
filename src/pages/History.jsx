@@ -2,9 +2,18 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { todayKey, getMonthDays, formatDate, offsetDate, weekLabel } from '../utils/date.js'
 import { getDayTotals, hitProteinGoal, getWeeklySummary } from '../utils/nutrition.js'
-import { DAILY_TARGETS } from '../data/meals.js'
+import FoodSearch from '../components/FoodSearch.jsx'
+import AiDishLogger from '../components/AiDishLogger.jsx'
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+// Generate last N days as dateKeys, newest first
+function lastNDays(n) {
+  const today = todayKey()
+  const arr = []
+  for (let i = 0; i < n; i++) arr.push(offsetDate(today, -i))
+  return arr
+}
 
 export default function History() {
   const { state } = useApp()
@@ -27,11 +36,8 @@ export default function History() {
 
   const weekSummary = getWeeklySummary(dailyLogs, todayKey())
 
-  // Build list view — last 60 days with data
-  const listDays = Object.keys(dailyLogs)
-    .filter(k => k <= todayKey())
-    .sort((a, b) => b.localeCompare(a))
-    .slice(0, 60)
+  // All days (last 60) — includes empty ones
+  const listDays = lastNDays(60)
 
   return (
     <div className="page page-enter">
@@ -148,22 +154,15 @@ export default function History() {
           </>
         ) : (
           <div className="history-list">
-            {listDays.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">📅</div>
-                <p>No history yet.<br />Start logging meals to see your progress here.</p>
-              </div>
-            ) : (
-              listDays.map(key => (
-                <HistoryListItem
-                  key={key}
-                  dateKey={key}
-                  log={dailyLogs[key]}
-                  expanded={selectedDay === key}
-                  onToggle={() => setSelectedDay(selectedDay === key ? null : key)}
-                />
-              ))
-            )}
+            {listDays.map(key => (
+              <HistoryListItem
+                key={key}
+                dateKey={key}
+                log={dailyLogs[key] || null}
+                expanded={selectedDay === key}
+                onToggle={() => setSelectedDay(selectedDay === key ? null : key)}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -204,13 +203,25 @@ function DayDetail({ dateKey, log }) {
 }
 
 function HistoryListItem({ dateKey, log, expanded, onToggle }) {
-  const totals = getDayTotals(log)
-  const hit = hitProteinGoal(log)
+  const { removeFreeLog } = useApp()
+  const [aiQuery, setAiQuery] = useState(null)
+  const isToday = dateKey === todayKey()
   const d = new Date(dateKey + 'T12:00:00')
+  const totals = log ? getDayTotals(log) : null
+  const hit = log ? hitProteinGoal(log) : null
+
+  const label = isToday ? 'Today' : dateKey === offsetDate(todayKey(), -1) ? 'Yesterday' : null
+  const weekday = d.toLocaleDateString('en-IN', { weekday: 'short' })
+  const fullDate = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 
   return (
-    <div>
-      <div className="history-item" onClick={onToggle}>
+    <div style={{ marginBottom: 2 }}>
+      {/* Row header */}
+      <div
+        className="history-item"
+        onClick={onToggle}
+        style={{ opacity: !log && !isToday ? 0.55 : 1 }}
+      >
         <div className="history-date-badge">
           <div className="history-date-day">{d.getDate()}</div>
           <div className="history-date-month">{d.toLocaleDateString('en-IN', { month: 'short' })}</div>
@@ -218,23 +229,91 @@ function HistoryListItem({ dateKey, log, expanded, onToggle }) {
         <div className="history-item-info">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>
-              {d.toLocaleDateString('en-IN', { weekday: 'short' })}
+              {label || weekday}
+              {label && <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--txt4)', marginLeft: 4 }}>{fullDate}</span>}
             </span>
-            <span className={`history-status history-status--${hit ? 'hit' : 'miss'}`}>
-              {hit ? '✓ Hit' : '✗ Missed'}
-            </span>
+            {log && (
+              <span className={`history-status history-status--${hit ? 'hit' : 'miss'}`}>
+                {hit ? '✓ Hit' : '✗ Missed'}
+              </span>
+            )}
+            {!log && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--txt5)', fontStyle: 'italic' }}>no log</span>
+            )}
           </div>
-          <div className="history-item-macros">
-            <span style={{ fontSize: '0.75rem', color: 'var(--g600)', fontWeight: 600 }}>{totals.protein}g protein</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--txt3)' }}>{totals.calories} kcal</span>
-            <span style={{ fontSize: '0.75rem', color: '#2E86C1' }}>{totals.water.toFixed(1)}L</span>
-          </div>
+          {log && totals ? (
+            <div className="history-item-macros">
+              <span style={{ fontSize: '0.75rem', color: 'var(--g600)', fontWeight: 600 }}>{totals.protein}g protein</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--txt3)' }}>{totals.calories} kcal</span>
+              <span style={{ fontSize: '0.75rem', color: '#2E86C1' }}>{totals.water.toFixed(1)}L</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.75rem', color: 'var(--txt5)' }}>Tap to add food for this day</div>
+          )}
         </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ color: 'var(--txt4)', transform: expanded ? 'rotate(180deg)' : '', transition: 'transform 220ms' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+          style={{ color: 'var(--txt4)', transform: expanded ? 'rotate(180deg)' : '', transition: 'transform 220ms', flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </div>
-      {expanded && <DayDetail dateKey={dateKey} log={log} />}
+
+      {/* Expanded panel */}
+      {expanded && (
+        <div style={{
+          background: 'var(--surf)',
+          border: '1.5px solid var(--border)',
+          borderRadius: 'var(--r16)',
+          padding: 14,
+          marginBottom: 8,
+        }}>
+          {/* Totals — only if there's data */}
+          {log && totals && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+              <MacroStat label="Protein" val={`${totals.protein}g`} />
+              <MacroStat label="Calories" val={totals.calories} />
+              <MacroStat label="Water" val={`${totals.water.toFixed(1)}L`} />
+            </div>
+          )}
+
+          {/* Logged items with remove */}
+          {log?.freeLog?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <p className="label" style={{ marginBottom: 6 }}>Logged food</p>
+              {log.freeLog.map(item => (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 0', borderBottom: '1px solid var(--border)',
+                }}>
+                  <div style={{ flex: 1, fontSize: '0.8125rem', color: 'var(--txt2)' }}>
+                    <span style={{ fontWeight: 600 }}>{item.name}</span>
+                    <span style={{ color: 'var(--txt4)', marginLeft: 6 }}>{item.protein}g · {item.calories} kcal</span>
+                  </div>
+                  <button onClick={() => removeFreeLog(dateKey, item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt4)', padding: 4, flexShrink: 0 }} aria-label="Remove">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Inline food search for past date */}
+          <div style={{ borderTop: log?.freeLog?.length ? '1px solid var(--border)' : 'none', paddingTop: log?.freeLog?.length ? 12 : 0 }}>
+            <p className="label" style={{ marginBottom: 10 }}>
+              {isToday ? 'Add food' : `Add food for ${d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}`}
+            </p>
+            <FoodSearch dateKey={dateKey} onAiParse={setAiQuery} suppressResults={!!aiQuery} />
+            {aiQuery && (
+              <AiDishLogger
+                query={aiQuery}
+                dateKey={dateKey}
+                onDone={() => setAiQuery(null)}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
